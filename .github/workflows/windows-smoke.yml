@@ -98,7 +98,8 @@ jobs:
 
       - name: Install WebDriver test deps
         working-directory: webdriver
-        run: pnpm install --no-frozen-lockfile
+        # npm (not pnpm) so this isn't treated as a workspace member.
+        run: npm install
 
       # Layer 2: real WebDriver session — UI renders + is interactive.
       - name: Layer 2 — WebDriver UI smoke

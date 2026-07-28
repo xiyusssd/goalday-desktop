@@ -1,4 +1,8 @@
-allowBuilds:
-  esbuild: set this to true or false
+# Single-package repo. The webdriver/ smoke test is intentionally NOT a
+# workspace member (it keeps its own deps out of the app lockfile).
+packages:
+  - "."
+
+# Approve esbuild's install script (pnpm v10+ reads this from the workspace file).
 onlyBuiltDependencies:
   - esbuild
