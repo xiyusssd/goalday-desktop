@@ -79,22 +79,48 @@ jobs:
         run: cargo install tauri-driver --locked
 
       # Install an msedgedriver matching the runner's Edge/WebView2 major version.
+      # Falls back to the runner's pre-installed EdgeDriver if the download fails.
       - name: Setup msedgedriver
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $edge = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}' -ErrorAction SilentlyContinue).pv
           if (-not $edge) {
             $edge = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}' -ErrorAction SilentlyContinue).pv
           }
           if (-not $edge) { throw "could not detect installed Edge version" }
           $major = $edge.Split('.')[0]
-          echo "Edge version $edge (major $major)"
-          $ver = (Invoke-WebRequest "https://msedgedriver.microsoft.com/LATEST_RELEASE_$major`_WINDOWS" -UseBasicParsing).Content.Trim() -replace '[^\d\.]', ''
-          echo "Matching msedgedriver: $ver"
-          $url = "https://msedgedriver.microsoft.com/$ver/edgedriver_win64.zip"
-          Invoke-WebRequest $url -OutFile driver.zip -UseBasicParsing
-          Expand-Archive driver.zip -DestinationPath "$env:RUNNER_TEMP\edgedriver" -Force
-          echo "$env:RUNNER_TEMP\edgedriver" >> $env:GITHUB_PATH
+          Write-Host "Edge version $edge (major $major)"
+
+          function Decode($content) {
+            # LATEST_RELEASE_* files are UTF-16; Invoke-WebRequest hands back bytes.
+            if ($content -is [byte[]]) { return [System.Text.Encoding]::Unicode.GetString($content) }
+            return [string]$content
+          }
+
+          $ok = $false
+          try {
+            $resp = Invoke-WebRequest "https://msedgedriver.microsoft.com/LATEST_RELEASE_${major}_WINDOWS" -UseBasicParsing
+            $ver = (Decode $resp.Content).Trim() -replace '[^\d\.]', ''
+            Write-Host "Matching msedgedriver: $ver"
+            Invoke-WebRequest "https://msedgedriver.microsoft.com/$ver/edgedriver_win64.zip" -OutFile driver.zip -UseBasicParsing
+            Expand-Archive driver.zip -DestinationPath "$env:RUNNER_TEMP\edgedriver" -Force
+            $dir = "$env:RUNNER_TEMP\edgedriver"
+            $ok = Test-Path "$dir\msedgedriver.exe"
+          } catch {
+            Write-Host "Download failed: $($_.Exception.Message)"
+          }
+
+          if (-not $ok) {
+            Write-Host "Falling back to pre-installed EdgeDriver on the runner…"
+            $dir = "$env:SystemDrive\SeleniumWebDrivers\EdgeDriver"
+            if (-not (Test-Path "$dir\msedgedriver.exe")) {
+              $found = Get-ChildItem -Path "$env:SystemDrive\" -Filter msedgedriver.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($found) { $dir = $found.DirectoryName } else { throw "no msedgedriver found (download + fallback both failed)" }
+            }
+          }
+          Write-Host "Using msedgedriver dir: $dir"
+          echo $dir >> $env:GITHUB_PATH
 
       - name: Install WebDriver test deps
         working-directory: webdriver
