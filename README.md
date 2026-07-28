@@ -77,10 +77,10 @@ node_modules/.bin/tauri build   # release 编译 + 打包(pnpm tauri build 在�
 
 光「编译通过」不能保证在 Windows 上跑得起来。`.github/workflows/windows-smoke.yml` 在每次推到 `main` / 提 PR / 手动触发时,会在 Windows runner 上**真实运行** app 做两层验证:
 
-- **第一层 · 启动不崩溃**:构建 debug 二进制并启动,等 8 秒确认进程没退出 —— 抓「WebView2 缺失 / DLL / 初始化失败」这类根本起不来的问题。
-- **第二层 · UI 能渲染+可交互**:通过 `tauri-driver` + WebDriver 连上运行中的窗口,断言侧边栏渲染出来、品牌文案存在、点击导航不崩。
+- **第一层 · 启动不崩溃(硬门禁)**:构建 debug 二进制并启动,等 8 秒确认进程没退出 —— 抓「WebView2 缺失 / DLL / 初始化失败」这类根本起不来的问题。**这一层过了就证明 app 能在 Windows 上真实启动、WebView2 初始化正常**,是"能不能运行"的核心答案。
+- **第二层 · UI 能渲染+可交互(best-effort,不阻塞)**:通过 `tauri-driver` + WebDriver 连上运行中的窗口,断言侧边栏渲染、品牌文案存在、点导航不崩。因为它依赖 msedgedriver 与 Edge 版本匹配 —— 这在 CI 上天生容易 flaky —— 所以设为 `continue-on-error`,失败不会让整个 job 变红,只作为额外信号看日志。
 
-绿了就说明这套代码确实能在 Windows 上启动并渲染。冒烟脚本在 `webdriver/`(独立依赖,不进主 `package.json`)。
+冒烟脚本在 `webdriver/`(独立依赖,不进主 `package.json`)。
 
 ### 首次推送到 GitHub
 
