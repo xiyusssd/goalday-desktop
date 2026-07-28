@@ -1,0 +1,119 @@
+name: Windows Smoke Test
+
+# Proves the app actually RUNS on Windows (not just that it compiles):
+#   Layer 1 — launch the built .exe, assert it doesn't crash on startup
+#             (catches missing WebView2 / DLL / init failures).
+#   Layer 2 — drive it through tauri-driver + WebDriver, assert the UI renders
+#             and a nav click works.
+#
+# Runs on pushes/PRs to main and manual dispatch. Does NOT run on tags
+# (windows-build.yml handles releases).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install app dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build debug binary (no bundle)
+        run: pnpm exec tauri build --debug --no-bundle
+
+      - name: Locate binary
+        id: bin
+        shell: pwsh
+        run: |
+          $exe = "src-tauri/target/debug/goalday-desktop.exe"
+          if (-not (Test-Path $exe)) { throw "binary not found at $exe" }
+          $abs = (Resolve-Path $exe).Path
+          echo "path=$abs" >> $env:GITHUB_OUTPUT
+          echo "Built: $abs"
+
+      # Layer 1: does it even start? Launch, wait, assert still alive, then kill.
+      - name: Layer 1 — launch does not crash
+        shell: pwsh
+        run: |
+          $exe = "${{ steps.bin.outputs.path }}"
+          echo "Launching $exe"
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited) {
+            throw "app exited on startup with code $($p.ExitCode) — likely WebView2/init failure"
+          }
+          echo "Still running after 8s (pid $($p.Id)) — startup OK"
+          Stop-Process -Id $p.Id -Force
+          Start-Sleep -Seconds 2
+
+      # tauri-driver brokers WebDriver <-> WebView2 via msedgedriver.
+      - name: Install tauri-driver
+        run: cargo install tauri-driver --locked
+
+      # Install an msedgedriver matching the runner's Edge/WebView2 major version.
+      - name: Setup msedgedriver
+        shell: pwsh
+        run: |
+          $edge = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}' -ErrorAction SilentlyContinue).pv
+          if (-not $edge) {
+            $edge = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}' -ErrorAction SilentlyContinue).pv
+          }
+          if (-not $edge) { throw "could not detect installed Edge version" }
+          $major = $edge.Split('.')[0]
+          echo "Edge version $edge (major $major)"
+          $ver = (Invoke-WebRequest "https://msedgedriver.microsoft.com/LATEST_RELEASE_$major`_WINDOWS" -UseBasicParsing).Content.Trim() -replace '[^\d\.]', ''
+          echo "Matching msedgedriver: $ver"
+          $url = "https://msedgedriver.microsoft.com/$ver/edgedriver_win64.zip"
+          Invoke-WebRequest $url -OutFile driver.zip -UseBasicParsing
+          Expand-Archive driver.zip -DestinationPath "$env:RUNNER_TEMP\edgedriver" -Force
+          echo "$env:RUNNER_TEMP\edgedriver" >> $env:GITHUB_PATH
+
+      - name: Install WebDriver test deps
+        working-directory: webdriver
+        run: pnpm install --no-frozen-lockfile
+
+      # Layer 2: real WebDriver session — UI renders + is interactive.
+      - name: Layer 2 — WebDriver UI smoke
+        working-directory: webdriver
+        shell: pwsh
+        env:
+          TAURI_APP_PATH: ${{ steps.bin.outputs.path }}
+        run: |
+          echo "Starting tauri-driver…"
+          $drv = Start-Process -FilePath "tauri-driver" -PassThru
+          Start-Sleep -Seconds 3
+          try {
+            node smoke.mjs
+            if ($LASTEXITCODE -ne 0) { throw "smoke test failed (exit $LASTEXITCODE)" }
+          } finally {
+            if (-not $drv.HasExited) { Stop-Process -Id $drv.Id -Force }
+          }
+

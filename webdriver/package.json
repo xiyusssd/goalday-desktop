@@ -1,0 +1,13 @@
+{
+  "name": "goalday-webdriver-smoke",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Windows WebDriver smoke test for GoalDay (isolated from the app deps).",
+  "scripts": {
+    "smoke": "node smoke.mjs"
+  },
+  "dependencies": {
+    "selenium-webdriver": "^4.28.1"
+  }
+}

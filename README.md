@@ -73,6 +73,15 @@ node_modules/.bin/tauri build   # release 编译 + 打包(pnpm tauri build 在�
 
 > 同样未做代码签名,首次运行 Windows SmartScreen 可能提示「未知发布者」,点「更多信息 → 仍要运行」即可。要去掉这个提示需购买代码签名证书。
 
+### Windows 运行冒烟测试(自动)
+
+光「编译通过」不能保证在 Windows 上跑得起来。`.github/workflows/windows-smoke.yml` 在每次推到 `main` / 提 PR / 手动触发时,会在 Windows runner 上**真实运行** app 做两层验证:
+
+- **第一层 · 启动不崩溃**:构建 debug 二进制并启动,等 8 秒确认进程没退出 —— 抓「WebView2 缺失 / DLL / 初始化失败」这类根本起不来的问题。
+- **第二层 · UI 能渲染+可交互**:通过 `tauri-driver` + WebDriver 连上运行中的窗口,断言侧边栏渲染出来、品牌文案存在、点击导航不崩。
+
+绿了就说明这套代码确实能在 Windows 上启动并渲染。冒烟脚本在 `webdriver/`(独立依赖,不进主 `package.json`)。
+
 ### 首次推送到 GitHub
 
 本项目当前还不是 git 仓库。初始化并推送:
