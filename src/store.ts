@@ -16,7 +16,7 @@ import {
   Workout,
   AuthUser,
 } from "./types";
-import { loadData, saveData, loadSettings, saveSettings, Settings } from "./lib/storage";
+import { loadData, saveDataDebounced, flushData, loadSettings, saveSettings, Settings } from "./lib/storage";
 import { today, addDays } from "./lib/date";
 import { reconcileSeries } from "./lib/recurrence";
 
@@ -103,7 +103,7 @@ const initialData = loadData();
 const initialSettings = loadSettings();
 
 function persist(state: StoreState) {
-  saveData({
+  saveDataDebounced({
     tasks: state.tasks,
     journals: state.journals,
     goals: state.goals,
@@ -528,6 +528,7 @@ export const useStore = create<StoreState>((set, get) => ({
       notes: data.notes,
     });
     persist(get());
+    flushData(); // sync-merge / import: write through immediately.
   },
 
   getData: () => {

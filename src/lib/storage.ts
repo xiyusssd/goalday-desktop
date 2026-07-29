@@ -30,9 +30,40 @@ export function loadData(): AppData {
   }
 }
 
-/** Persist the full dataset to localStorage. */
+/** Persist the full dataset to localStorage immediately (synchronous). */
 export function saveData(data: AppData): void {
   localStorage.setItem(KEY, JSON.stringify(data));
+}
+
+// Coalesce rapid writes (e.g. every keystroke in the note/journal editors) into
+// one localStorage write. In-memory state updates instantly; only the disk
+// serialization is deferred. flushData() forces a pending write out (used on
+// page hide so nothing is lost when the window closes).
+let pendingData: AppData | null = null;
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+const FLUSH_DELAY_MS = 400;
+
+/** Persist the dataset, coalescing bursts of writes within FLUSH_DELAY_MS. */
+export function saveDataDebounced(data: AppData): void {
+  pendingData = data;
+  if (flushTimer !== null) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    flushData();
+  }, FLUSH_DELAY_MS);
+}
+
+/** Write any pending debounced data to localStorage right now. */
+export function flushData(): void {
+  if (flushTimer !== null) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  if (pendingData !== null) {
+    const data = pendingData;
+    pendingData = null;
+    saveData(data);
+  }
 }
 
 const SETTINGS_KEY = "goalday.settings.v1";
