@@ -1,7 +1,9 @@
 import dayjs from "dayjs";
+import { useMemo } from "react";
 import clsx from "clsx";
 import { useStore, activeTasks, tasksForDay, isOverdue, dayCompletion } from "../store";
 import { today, formatDay } from "../lib/date";
+import { completionCountByDate, completionStreak } from "../lib/stats";
 import { useT, Key } from "../i18n";
 import { ProgressRing } from "./ProgressRing";
 import { useStitch, StitchMascot, PawMark } from "./stitch";
@@ -92,32 +94,36 @@ export function HomeView() {
 
   const greeting = timeGreeting();
   const todayIso = today();
-  const progress = dayCompletion(tasks, todayIso);
-  const todays = tasksForDay(tasks, todayIso);
-  const overdue = activeTasks(tasks).filter((x) => isOverdue(x, todayIso));
-  // "进行中就是今天的,不写明天的": doing tasks that are actionable now —
-  // unscheduled or scheduled today/earlier, never future instances.
-  const doing = activeTasks(tasks)
-    .filter((x) => x.status === "doing" && (x.scheduledDate === null || x.scheduledDate <= todayIso))
-    .sort((a, b) => a.order - b.order);
 
-  const all = activeTasks(tasks);
-  const totalDone = all.filter((x) => x.status === "done").length;
-  const rate = all.length ? Math.round((totalDone / all.length) * 100) : 0;
-
-  let streak = 0;
-  for (let i = 0; i < 365; i++) {
-    const d = dayjs(todayIso).subtract(i, "day").format("YYYY-MM-DD");
-    const hit = all.some((x) => x.completedAt && dayjs(x.completedAt).format("YYYY-MM-DD") === d);
-    if (hit) streak++;
-    else if (i === 0) break;
-    else break;
-  }
-
-  const byGoal = goals
-    .filter((g) => !g.deleted)
-    .map((g) => ({ goal: g, total: all.filter((x) => x.goalId === g.id).length, done: all.filter((x) => x.goalId === g.id && x.status === "done").length }))
-    .filter((x) => x.total > 0);
+  // Derived task stats: recompute only when tasks/goals/day change, not on
+  // every language/theme re-render.
+  const { progress, todays, overdue, doing, totalDone, rate, streak, byGoal } = useMemo(() => {
+    const all = activeTasks(tasks);
+    const totalDone = all.filter((x) => x.status === "done").length;
+    // "进行中就是今天的,不写明天的": doing tasks actionable now —
+    // unscheduled or scheduled today/earlier, never future instances.
+    const doing = all
+      .filter((x) => x.status === "doing" && (x.scheduledDate === null || x.scheduledDate <= todayIso))
+      .sort((a, b) => a.order - b.order);
+    const byGoal = goals
+      .filter((g) => !g.deleted)
+      .map((g) => ({
+        goal: g,
+        total: all.filter((x) => x.goalId === g.id).length,
+        done: all.filter((x) => x.goalId === g.id && x.status === "done").length,
+      }))
+      .filter((x) => x.total > 0);
+    return {
+      progress: dayCompletion(tasks, todayIso),
+      todays: tasksForDay(tasks, todayIso),
+      overdue: all.filter((x) => isOverdue(x, todayIso)),
+      doing,
+      totalDone,
+      rate: all.length ? Math.round((totalDone / all.length) * 100) : 0,
+      streak: completionStreak(completionCountByDate(all), todayIso),
+      byGoal,
+    };
+  }, [tasks, goals, todayIso]);
 
   const stats: { label: Key; value: string; icon: string; tint: string }[] = [
     { label: "completionRate", value: `${rate}%`, tint: "text-brand-500 bg-brand-50 dark:bg-brand-500/15", icon: "M12 3a9 9 0 109 9M12 3v9l6.5 6.5" },

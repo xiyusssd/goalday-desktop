@@ -35,6 +35,8 @@ export function DailyPlanView() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const stitch = useStitch();
+  const pool = unassignedTasksForDay(tasks, day);
+  const inbox = inboxTasks(tasks);
 
   const onDragStart = (e: DragStartEvent) => setActive((e.active.data.current?.task as Task) ?? null);
 
@@ -129,10 +131,10 @@ export function DailyPlanView() {
             </div>
             <QuickAdd status="doing" scheduledDate={day} className="mb-2" />
             <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
-              {unassignedTasksForDay(tasks, day).length === 0 ? (
+              {pool.length === 0 ? (
                 <p className="mt-3 text-center text-xs text-slate-400">{t("dragToPeriod")}</p>
               ) : (
-                unassignedTasksForDay(tasks, day).map((task) => <TaskCard key={task.id} task={task} />)
+                pool.map((task) => <TaskCard key={task.id} task={task} />)
               )}
             </div>
           </Droppable>
@@ -149,7 +151,7 @@ export function DailyPlanView() {
             </div>
             <QuickAdd status="todo" scheduledDate={null} className="mb-2" />
             <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
-              {inboxTasks(tasks).map((task) => (
+              {inbox.map((task) => (
                 <TaskCard key={task.id} task={task} />
               ))}
             </div>

@@ -1,7 +1,8 @@
+import { useMemo } from "react";
 import { useStore, activeTasks } from "../store";
 import { weekDays, today } from "../lib/date";
+import { completionCountByDate, completionStreak } from "../lib/stats";
 import { useT } from "../i18n";
-import dayjs from "dayjs";
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -19,38 +20,35 @@ export function StatsView() {
   const weekStart = useStore((s) => s.currentWeekStart);
   const { t, tArr } = useT();
 
-  const all = activeTasks(tasks);
-  const done = all.filter((x) => x.status === "done");
-  const totalDone = done.length;
-  const rate = all.length ? Math.round((totalDone / all.length) * 100) : 0;
-
-  // Per-day completions for the current week.
-  const days = weekDays(weekStart);
   const labels = tArr("weekdayShort");
-  const perDay = days.map(
-    (d) => done.filter((x) => x.completedAt && dayjs(x.completedAt).format("YYYY-MM-DD") === d).length,
-  );
-  const maxDay = Math.max(1, ...perDay);
 
-  // Streak: consecutive days up to today with >=1 completion.
-  let streak = 0;
-  for (let i = 0; i < 365; i++) {
-    const d = dayjs(today()).subtract(i, "day").format("YYYY-MM-DD");
-    const c = done.some((x) => x.completedAt && dayjs(x.completedAt).format("YYYY-MM-DD") === d);
-    if (c) streak++;
-    else if (i > 0) break;
-    else break;
-  }
+  const { rate, totalDone, streak, perDay, maxDay, byGoal } = useMemo(() => {
+    const all = activeTasks(tasks);
+    const done = all.filter((x) => x.status === "done");
+    const totalDone = done.length;
+    const byDate = completionCountByDate(done);
 
-  // By goal.
-  const byGoal = goals
-    .filter((g) => !g.deleted)
-    .map((g) => ({
-      goal: g,
-      total: all.filter((x) => x.goalId === g.id).length,
-      done: done.filter((x) => x.goalId === g.id).length,
-    }))
-    .filter((x) => x.total > 0);
+    // Per-day completions for the current week.
+    const perDay = weekDays(weekStart).map((d) => byDate.get(d) ?? 0);
+
+    const byGoal = goals
+      .filter((g) => !g.deleted)
+      .map((g) => ({
+        goal: g,
+        total: all.filter((x) => x.goalId === g.id).length,
+        done: done.filter((x) => x.goalId === g.id).length,
+      }))
+      .filter((x) => x.total > 0);
+
+    return {
+      totalDone,
+      rate: all.length ? Math.round((totalDone / all.length) * 100) : 0,
+      streak: completionStreak(byDate, today()),
+      perDay,
+      maxDay: Math.max(1, ...perDay),
+      byGoal,
+    };
+  }, [tasks, goals, weekStart]);
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto">
