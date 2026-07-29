@@ -1,8 +1,8 @@
 import { nanoid } from "nanoid";
-import type { Workout } from "../types";
-import { initialData } from "./initial";
-import { persist } from "./persist";
-import type { Slice, FitnessSlice } from "./types";
+import type { Workout } from "../types.ts";
+import { initialData } from "./initial.ts";
+import { persist } from "./persist.ts";
+import type { Slice, FitnessSlice } from "./types.ts";
 
 export const createFitnessSlice: Slice<FitnessSlice> = (set, get) => ({
   workouts: initialData.workouts,

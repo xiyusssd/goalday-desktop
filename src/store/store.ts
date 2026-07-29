@@ -1,12 +1,12 @@
 import { create } from "zustand";
-import type { StoreState } from "./types";
-import { createTaskSlice } from "./taskSlice";
-import { createJournalSlice } from "./journalSlice";
-import { createGoalSlice } from "./goalSlice";
-import { createFinanceSlice } from "./financeSlice";
-import { createFitnessSlice } from "./fitnessSlice";
-import { createNoteSlice } from "./noteSlice";
-import { createAppSlice } from "./appSlice";
+import type { StoreState } from "./types.ts";
+import { createTaskSlice } from "./taskSlice.ts";
+import { createJournalSlice } from "./journalSlice.ts";
+import { createGoalSlice } from "./goalSlice.ts";
+import { createFinanceSlice } from "./financeSlice.ts";
+import { createFitnessSlice } from "./fitnessSlice.ts";
+import { createNoteSlice } from "./noteSlice.ts";
+import { createAppSlice } from "./appSlice.ts";
 
 export const useStore = create<StoreState>((...a) => ({
   ...createTaskSlice(...a),

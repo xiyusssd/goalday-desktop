@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import type { DayPeriod, Priority, Task, TaskStatus } from "../types";
-import { useStore } from "./store";
-import { type TaskFilter } from "./types";
+import type { DayPeriod, Priority, Task, TaskStatus } from "../types.ts";
+import { useStore } from "./store.ts";
+import { type TaskFilter } from "./types.ts";
 
 export function activeTasks(tasks: Task[]): Task[] {
   return tasks.filter((t) => !t.deleted);

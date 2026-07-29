@@ -1,8 +1,8 @@
 import { nanoid } from "nanoid";
-import type { Transaction } from "../types";
-import { initialData } from "./initial";
-import { persist } from "./persist";
-import type { Slice, FinanceSlice } from "./types";
+import type { Transaction } from "../types.ts";
+import { initialData } from "./initial.ts";
+import { persist } from "./persist.ts";
+import type { Slice, FinanceSlice } from "./types.ts";
 
 export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => ({
   transactions: initialData.transactions,

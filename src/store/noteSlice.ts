@@ -1,8 +1,8 @@
 import { nanoid } from "nanoid";
-import type { Note } from "../types";
-import { initialData } from "./initial";
-import { persist } from "./persist";
-import type { Slice, NoteSlice } from "./types";
+import type { Note } from "../types.ts";
+import { initialData } from "./initial.ts";
+import { persist } from "./persist.ts";
+import type { Slice, NoteSlice } from "./types.ts";
 
 export const createNoteSlice: Slice<NoteSlice> = (set, get) => ({
   notes: initialData.notes,

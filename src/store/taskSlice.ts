@@ -1,10 +1,10 @@
 import { nanoid } from "nanoid";
-import type { Task, TaskStatus } from "../types";
-import { addDays } from "../lib/date";
-import { reconcileSeries } from "../lib/recurrence";
-import { initialData } from "./initial";
-import { persist } from "./persist";
-import { EMPTY_FILTER, type Slice, type TaskSlice } from "./types";
+import type { Task, TaskStatus } from "../types.ts";
+import { addDays } from "../lib/date.ts";
+import { reconcileSeries } from "../lib/recurrence.ts";
+import { initialData } from "./initial.ts";
+import { persist } from "./persist.ts";
+import { EMPTY_FILTER, type Slice, type TaskSlice } from "./types.ts";
 
 export const createTaskSlice: Slice<TaskSlice> = (set, get) => ({
   tasks: initialData.tasks,

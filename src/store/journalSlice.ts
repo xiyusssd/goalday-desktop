@@ -1,8 +1,8 @@
 import { nanoid } from "nanoid";
-import type { JournalEntry } from "../types";
-import { initialData } from "./initial";
-import { persist } from "./persist";
-import type { Slice, JournalSlice } from "./types";
+import type { JournalEntry } from "../types.ts";
+import { initialData } from "./initial.ts";
+import { persist } from "./persist.ts";
+import type { Slice, JournalSlice } from "./types.ts";
 
 export const createJournalSlice: Slice<JournalSlice> = (set, get) => ({
   journals: initialData.journals,

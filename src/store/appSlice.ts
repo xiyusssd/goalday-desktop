@@ -1,8 +1,8 @@
-import { saveSettings, flushData } from "../lib/storage";
-import { today, addDays } from "../lib/date";
-import { initialSettings } from "./initial";
-import { persist } from "./persist";
-import type { Slice, AppSlice } from "./types";
+import { saveSettings, flushData } from "../lib/storage.ts";
+import { today, addDays } from "../lib/date.ts";
+import { initialSettings } from "./initial.ts";
+import { persist } from "./persist.ts";
+import type { Slice, AppSlice } from "./types.ts";
 
 export const createAppSlice: Slice<AppSlice> = (set, get) => ({
   settings: initialSettings,

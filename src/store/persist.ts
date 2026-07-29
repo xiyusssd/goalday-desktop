@@ -1,5 +1,5 @@
-import { saveDataDebounced } from "../lib/storage";
-import type { StoreState } from "./types";
+import { saveDataDebounced } from "../lib/storage.ts";
+import type { StoreState } from "./types.ts";
 
 /** Persist the persistable arrays from the store (debounced; see storage.ts). */
 export function persist(state: StoreState) {

@@ -13,8 +13,8 @@ import type {
   Transaction,
   Workout,
   AuthUser,
-} from "../types";
-import type { Settings } from "../lib/storage";
+} from "../types.ts";
+import type { Settings } from "../lib/storage.ts";
 
 /** Global task search / filter state (UI only, not persisted). */
 export interface TaskFilter {

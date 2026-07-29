@@ -1,4 +1,4 @@
-import { AppData, EMPTY_DATA } from "../types";
+import { type AppData, EMPTY_DATA } from "../types.ts";
 
 // v2 added transactions/workouts/notes. Old v1 blobs are still read (the key is
 // unchanged); the new arrays simply backfill to [] for existing installs.

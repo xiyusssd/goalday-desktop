@@ -1,8 +1,8 @@
 import { nanoid } from "nanoid";
-import type { Goal } from "../types";
-import { initialData } from "./initial";
-import { persist } from "./persist";
-import type { Slice, GoalSlice } from "./types";
+import type { Goal } from "../types.ts";
+import { initialData } from "./initial.ts";
+import { persist } from "./persist.ts";
+import type { Slice, GoalSlice } from "./types.ts";
 
 export const createGoalSlice: Slice<GoalSlice> = (set, get) => ({
   goals: initialData.goals,

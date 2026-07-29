@@ -1,5 +1,5 @@
-export { useStore } from "./store";
-export { EMPTY_FILTER, type TaskFilter, type StoreState } from "./types";
+export { useStore } from "./store.ts";
+export { EMPTY_FILTER, type TaskFilter, type StoreState } from "./types.ts";
 export {
   activeTasks,
   tasksByStatus,
@@ -15,4 +15,4 @@ export {
   dayCompletion,
   matchesFilter,
   useFilteredTasks,
-} from "./selectors";
+} from "./selectors.ts";
