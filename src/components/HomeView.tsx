@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import { useMemo } from "react";
 import clsx from "clsx";
-import { useStore, activeTasks, tasksForDay, isOverdue, dayCompletion } from "../store";
+import { useStore, tasksForDay, isOverdue, dayCompletion } from "../store";
 import { today, formatDay } from "../lib/date";
 import { completionCountByDate, completionStreak } from "../lib/stats";
 import { useT, Key } from "../i18n";
@@ -97,14 +97,9 @@ export function HomeView() {
 
   // Derived task stats: recompute only when tasks/goals/day change, not on
   // every language/theme re-render.
-  const { progress, todays, overdue, doing, totalDone, rate, streak, byGoal } = useMemo(() => {
-    const all = activeTasks(tasks);
+  const { progress, todays, overdue, totalDone, rate, streak, byGoal } = useMemo(() => {
+    const all = tasks.filter((x) => !x.deleted);
     const totalDone = all.filter((x) => x.status === "done").length;
-    // "进行中就是今天的,不写明天的": doing tasks actionable now —
-    // unscheduled or scheduled today/earlier, never future instances.
-    const doing = all
-      .filter((x) => x.status === "doing" && (x.scheduledDate === null || x.scheduledDate <= todayIso))
-      .sort((a, b) => a.order - b.order);
     const byGoal = goals
       .filter((g) => !g.deleted)
       .map((g) => ({
@@ -117,7 +112,6 @@ export function HomeView() {
       progress: dayCompletion(tasks, todayIso),
       todays: tasksForDay(tasks, todayIso),
       overdue: all.filter((x) => isOverdue(x, todayIso)),
-      doing,
       totalDone,
       rate: all.length ? Math.round((totalDone / all.length) * 100) : 0,
       streak: completionStreak(completionCountByDate(all), todayIso),
@@ -230,34 +224,6 @@ export function HomeView() {
           )}
         </Section>
       </div>
-
-      <Section
-        title={t("doing")}
-        count={doing.length}
-        tint="text-brand-500 bg-brand-50 dark:bg-brand-500/15"
-        icon="M4 5h4v14H4zM10 5h4v14h-4zM16 5h4v14h-4z"
-      >
-        {doing.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-3">
-            {stitch && <StitchMascot size={64} className="opacity-90" />}
-            <p className="text-sm text-slate-400">{t("noTasks")}</p>
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            {doing.map((x) => (
-              <TaskRow
-                key={x.id}
-                id={x.id}
-                title={x.title}
-                meta={x.scheduledDate && x.scheduledDate < todayIso ? formatDay(x.scheduledDate, lang) : undefined}
-                done={false}
-                onToggle={() => toggleDone(x.id)}
-                onOpen={() => openTask(x.id)}
-              />
-            ))}
-          </div>
-        )}
-      </Section>
 
       {byGoal.length > 0 && (
         <Section

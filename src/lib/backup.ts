@@ -1,5 +1,5 @@
-import { AppData } from "../types";
-import { mergeById } from "./sync-core";
+import type { AppData } from "../types.ts";
+import { mergeById } from "./sync-core.ts";
 
 const BACKUP_VERSION = 1;
 

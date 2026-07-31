@@ -33,23 +33,27 @@
 > ⚠️ 本机注意：默认 `node` 指向 ChatGPT.app 内置的、开启了 library validation 的 Node，无法加载 rollup/esbuild 等原生模块。请使用独立安装的 Node(如 `brew install node`,即 `/opt/homebrew/bin/node`)。
 
 ```bash
-# 确保用的是 Homebrew 的 node
-export PATH="/opt/homebrew/bin:$PATH"
-
-pnpm install          # 首次
-pnpm tauri dev        # 启动桌面开发(会自动拉起 Vite)
+pnpm install   # 首次
+./dev.sh       # 启动桌面开发(会自动拉起 Vite)
 ```
+
+`dev.sh` / `build.sh` 会自己挑一个能用的 Node(优先 `~/.goalday-runtime/node`,回退 Homebrew),不需要手动改 `PATH`。若要绕开脚本直接敲命令,先 `export PATH="/opt/homebrew/bin:$PATH"`。
 
 打包:
 
 ```bash
-node_modules/.bin/tauri build   # release 编译 + 打包(pnpm tauri build 在本机会被 esbuild 脚本检查拦住)
+./build.sh                  # release 编译,产出 .app
+./build.sh --bundles dmg    # 需要 .dmg 时(见下方说明)
 ```
 
 产物(Apple Silicon):
 
 - `.app`:`src-tauri/target/release/bundle/macos/GoalDay.app`
 - `.dmg`:`src-tauri/target/release/bundle/dmg/GoalDay_0.1.0_aarch64.dmg`
+
+> `build.sh` 默认只打 `.app`。因为 `.dmg` 那一步要通过 Apple Events 驱动 Finder 排版窗口,终端没被授予「自动化」权限时会以 `-1743` 失败(`.app` 本身已经打好了,只是最后一步挂掉)。需要 dmg 就先到「系统设置 → 隐私与安全性 → 自动化」里给终端勾上 Finder,再跑 `./build.sh --bundles dmg`。
+>
+> 另外别用 `pnpm tauri build`,在本机会被 esbuild 的安装脚本检查拦住。
 
 > 未做代码签名 / 公证,首次打开需右键「打开」或在「系统设置 → 隐私与安全性」放行。
 

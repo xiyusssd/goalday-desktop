@@ -2,12 +2,12 @@ import { useT, Key } from "../i18n";
 
 const ROWS: { keys: string[]; label: Key }[] = [
   { keys: ["1"], label: "home" },
-  { keys: ["2"], label: "scGoDaily" },
-  { keys: ["3"], label: "scGoWeek" },
-  { keys: ["4"], label: "scGoJournal" },
-  { keys: ["5"], label: "scGoMoney" },
-  { keys: ["6"], label: "scGoFitness" },
-  { keys: ["7"], label: "scGoNotes" },
+  { keys: ["2"], label: "scGoNotes" },
+  { keys: ["3"], label: "scGoDaily" },
+  { keys: ["4"], label: "scGoWeek" },
+  { keys: ["5"], label: "scGoJournal" },
+  { keys: ["6"], label: "scGoMoney" },
+  { keys: ["7"], label: "scGoFitness" },
   { keys: ["8"], label: "scGoStats" },
   { keys: ["9"], label: "scGoSettings" },
   { keys: ["n"], label: "scNewTask" },

@@ -13,5 +13,10 @@ elif [ -x /opt/homebrew/bin/node ]; then
   export PATH="/opt/homebrew/bin:$PATH"
 fi
 
+# Tauri shells out to cargo, which lives outside the default PATH under launchd.
+if [ -d "$HOME/.cargo/bin" ]; then
+  export PATH="$PATH:$HOME/.cargo/bin"
+fi
+
 echo "Using node: $(command -v node) ($(node -v))"
 exec node_modules/.bin/tauri dev

@@ -1,5 +1,5 @@
-import { SupabaseClient } from "@supabase/supabase-js";
-import { AppData } from "../types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppData } from "../types";
 import {
   goalToRow,
   journalToRow,
@@ -14,7 +14,7 @@ import {
   taskToRow,
   transactionToRow,
   workoutToRow,
-} from "./sync-core";
+} from "./sync-core.ts";
 
 /**
  * Full two-way sync: pull remote, merge (last-write-wins), push merged back.

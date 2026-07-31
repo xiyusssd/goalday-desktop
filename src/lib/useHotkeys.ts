@@ -3,12 +3,12 @@ import type { View } from "../components/Sidebar";
 
 const VIEW_KEYS: Record<string, View> = {
   "1": "home",
-  "2": "daily",
-  "3": "week",
-  "4": "journal",
-  "5": "money",
-  "6": "fitness",
-  "7": "notes",
+  "2": "notes",
+  "3": "daily",
+  "4": "week",
+  "5": "journal",
+  "6": "money",
+  "7": "fitness",
   "8": "stats",
   "9": "settings",
 };

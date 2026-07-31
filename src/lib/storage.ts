@@ -3,6 +3,9 @@ import { type AppData, EMPTY_DATA } from "../types.ts";
 // v2 added transactions/workouts/notes. Old v1 blobs are still read (the key is
 // unchanged); the new arrays simply backfill to [] for existing installs.
 const KEY = "goalday.data.v1";
+// An unreadable blob is moved aside rather than being silently replaced by the
+// next write, so the raw text stays recoverable by hand.
+const CORRUPT_KEY = "goalday.data.corrupt";
 
 /** Load the full dataset from localStorage. Returns empty data on first run or parse error. */
 export function loadData(): AppData {
@@ -25,14 +28,35 @@ export function loadData(): AppData {
       workouts: parsed.workouts ?? [],
       notes: parsed.notes ?? [],
     };
-  } catch {
+  } catch (err) {
+    quarantineCorruptData(err);
     return structuredClone(EMPTY_DATA);
   }
 }
 
-/** Persist the full dataset to localStorage immediately (synchronous). */
-export function saveData(data: AppData): void {
-  localStorage.setItem(KEY, JSON.stringify(data));
+function quarantineCorruptData(err: unknown): void {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw !== null) localStorage.setItem(CORRUPT_KEY, raw);
+    console.error(`goalday: unreadable saved data kept at ${CORRUPT_KEY}`, err);
+  } catch {
+    // Storage itself is unusable; empty data is the only option left.
+  }
+}
+
+/**
+ * Persist the full dataset to localStorage immediately (synchronous). Returns
+ * false when the write fails (quota exceeded, storage disabled) so the caller
+ * can hold on to the payload instead of dropping the user's edits.
+ */
+export function saveData(data: AppData): boolean {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(data));
+    return true;
+  } catch (err) {
+    console.error("goalday: failed to persist data", err);
+    return false;
+  }
 }
 
 // Coalesce rapid writes (e.g. every keystroke in the note/journal editors) into
@@ -59,11 +83,10 @@ export function flushData(): void {
     clearTimeout(flushTimer);
     flushTimer = null;
   }
-  if (pendingData !== null) {
-    const data = pendingData;
-    pendingData = null;
-    saveData(data);
-  }
+  if (pendingData === null) return;
+  // Keep the payload queued if the write fails, so the next edit (or the
+  // flush on page hide) retries instead of losing it.
+  if (saveData(pendingData)) pendingData = null;
 }
 
 const SETTINGS_KEY = "goalday.settings.v1";
@@ -101,5 +124,10 @@ export function loadSettings(): Settings {
 }
 
 export function saveSettings(settings: Settings): void {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (err) {
+    // Called straight from store actions; a throw here would abort the action.
+    console.error("goalday: failed to persist settings", err);
+  }
 }

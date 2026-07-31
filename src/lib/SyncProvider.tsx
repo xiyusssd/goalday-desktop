@@ -1,6 +1,7 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { useStore } from "../store";
-import { getSupabase } from "./supabase";
+import { isConfigured, loadSupabase } from "./supabase";
 import { syncAll } from "./sync";
 import { SyncContext, SyncApi } from "./useSync";
 
@@ -13,30 +14,55 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const replaceAll = useStore((s) => s.replaceAll);
   const user = useStore((s) => s.user);
 
-  const supabase = getSupabase(supabaseUrl, supabaseAnonKey);
+  // Derived synchronously from settings, so the UI can render the sync section
+  // immediately instead of waiting on the dynamically imported SDK.
+  const configured = isConfigured(supabaseUrl, supabaseAnonKey);
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const getClient = useCallback(
+    () => loadSupabase(supabaseUrl, supabaseAnonKey),
+    [supabaseUrl, supabaseAnonKey],
+  );
+
+  // Fetch the SDK only once credentials exist; an offline-only install never
+  // pays for it.
+  useEffect(() => {
+    if (!configured) {
+      setSupabase(null);
+      setUser(null);
+      setSyncStatus("offline");
+      return;
+    }
+    let active = true;
+    void getClient().then((client) => {
+      if (!active) return;
+      setSupabase(client);
+      if (!client) setSyncStatus("error");
+    });
+    return () => {
+      active = false;
+    };
+  }, [configured, getClient, setUser, setSyncStatus]);
+
   const runSync = useCallback(async () => {
-    if (!supabase) return;
+    const client = await getClient();
+    if (!client) return;
     const uid = useStore.getState().user?.id;
     if (!uid) return;
     setSyncStatus("syncing");
     try {
-      const merged = await syncAll(supabase, uid, useStore.getState().getData());
+      const merged = await syncAll(client, uid, useStore.getState().getData());
       replaceAll(merged);
       setSyncStatus("synced");
     } catch (e) {
       console.error("sync failed", e);
       setSyncStatus("error");
     }
-  }, [supabase, replaceAll, setSyncStatus]);
+  }, [getClient, replaceAll, setSyncStatus]);
 
   useEffect(() => {
-    if (!supabase) {
-      setUser(null);
-      setSyncStatus("offline");
-      return;
-    }
+    if (!supabase) return;
     let active = true;
     void supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
@@ -78,32 +104,35 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(
     async (email: string, password: string) => {
-      if (!supabase) throw new Error("Supabase not configured");
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const client = await getClient();
+      if (!client) throw new Error("Supabase not configured");
+      const { error } = await client.auth.signInWithPassword({ email, password });
       if (error) throw error;
     },
-    [supabase],
+    [getClient],
   );
 
   const signUp = useCallback(
     async (email: string, password: string) => {
-      if (!supabase) throw new Error("Supabase not configured");
-      const { error } = await supabase.auth.signUp({ email, password });
+      const client = await getClient();
+      if (!client) throw new Error("Supabase not configured");
+      const { error } = await client.auth.signUp({ email, password });
       if (error) throw error;
     },
-    [supabase],
+    [getClient],
   );
 
   const signOut = useCallback(async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    const client = await getClient();
+    if (!client) return;
+    await client.auth.signOut();
     setUser(null);
     setSyncStatus("offline");
-  }, [supabase, setUser, setSyncStatus]);
+  }, [getClient, setUser, setSyncStatus]);
 
   const api: SyncApi = useMemo(
-    () => ({ configured: Boolean(supabase), signIn, signUp, signOut, runSync }),
-    [supabase, signIn, signUp, signOut, runSync],
+    () => ({ configured, signIn, signUp, signOut, runSync }),
+    [configured, signIn, signUp, signOut, runSync],
   );
 
   return <SyncContext.Provider value={api}>{children}</SyncContext.Provider>;

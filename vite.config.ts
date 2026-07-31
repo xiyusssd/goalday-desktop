@@ -10,19 +10,10 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
 
-  build: {
-    rollupOptions: {
-      output: {
-        // Split large third-party deps into their own chunks so the app code
-        // (and Supabase, only needed when sync is on) don't bloat the entry.
-        manualChunks: {
-          react: ["react", "react-dom"],
-          dnd: ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
-          supabase: ["@supabase/supabase-js"],
-        },
-      },
-    },
-  },
+  // No manualChunks on purpose: assets load from the local app bundle, so
+  // splitting statically-imported vendors buys nothing. What does pay off is
+  // deferring code behind dynamic import() (lazy views, the Supabase SDK) —
+  // Rollup already emits those as separate chunks.
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
