@@ -20,7 +20,7 @@ class MemStorage {
 }
 (globalThis as unknown as { localStorage: MemStorage }).localStorage = new MemStorage();
 
-const { useStore, activeTasks, tasksForDay, EMPTY_FILTER } = await import("./index.ts");
+const { useStore, activeTasks, tasksForDay, dayCompletion, EMPTY_FILTER } = await import("./index.ts");
 
 const DAY = "2026-07-29";
 
@@ -34,6 +34,7 @@ beforeEach(() => {
     notes: [],
     filter: { ...EMPTY_FILTER },
     selectedTaskId: null,
+    pendingDeleteId: null,
     lastDeleted: null,
     currentDay: DAY,
     currentWeekStart: "2026-07-27",
@@ -64,16 +65,117 @@ test("toggleDone flips status and completedAt", () => {
   assert.equal(t.completedAt, null);
 });
 
+test("dayCompletion counts soft-deleted unfinished tasks into the denominator", () => {
+  const s = useStore.getState();
+  s.addTask("a", "doing", DAY);
+  s.addTask("b", "doing", DAY);
+  s.addTask("c", "doing", DAY);
+  const [a, b] = useStore.getState().tasks;
+  useStore.getState().toggleDone(a.id);
+
+  // Clearing an unfinished task must not improve the day's rate.
+  useStore.getState().deleteTask(b.id);
+  const { done, total, rate } = dayCompletion(useStore.getState().tasks, DAY);
+  assert.equal(done, 1);
+  assert.equal(total, 3);
+  assert.equal(rate, 1 / 3);
+
+  // A deleted task that was completed still counts as completed.
+  useStore.getState().toggleDone(b.id);
+  useStore.getState().deleteTask(b.id);
+  const after = dayCompletion(useStore.getState().tasks, DAY);
+  assert.equal(after.done, 2);
+  assert.equal(after.total, 3);
+  assert.equal(after.rate, 2 / 3);
+});
+
+test("dayCompletion returns 0 rate when nothing is scheduled on the date", () => {
+  useStore.getState().addTask("elsewhere", "doing", "2026-07-30");
+  const { done, total, rate } = dayCompletion(useStore.getState().tasks, DAY);
+  assert.equal(done, 0);
+  assert.equal(total, 0);
+  assert.equal(rate, 0);
+});
+
 test("deleteTask soft-deletes and undoDelete restores", () => {
   useStore.getState().addTask("gone", "todo", null);
   const id = useStore.getState().tasks[0].id;
   useStore.getState().deleteTask(id);
   assert.equal(useStore.getState().tasks[0].deleted, true);
   assert.equal(activeTasks(useStore.getState().tasks).length, 0);
-  assert.equal(useStore.getState().lastDeleted?.id, id);
+  assert.deepEqual(useStore.getState().lastDeleted?.ids, [id]);
   useStore.getState().undoDelete();
   assert.equal(useStore.getState().tasks[0].deleted, false);
   assert.equal(useStore.getState().lastDeleted, null);
+});
+
+test("deleteTaskSeries soft-deletes head and all instances, undo restores them", () => {
+  useStore.getState().addTask("habit", "doing", "2026-07-29", "daily");
+  useStore.getState().materializeRecurring("2026-08-01");
+  const head = useStore.getState().tasks.find((t) => t.recurrence === "daily");
+  assert.ok(head);
+  assert.equal(activeTasks(useStore.getState().tasks).length, 4);
+
+  useStore.getState().deleteTaskSeries(head.id);
+  assert.equal(activeTasks(useStore.getState().tasks).length, 0);
+  assert.equal(useStore.getState().lastDeleted?.ids.length, 4);
+
+  useStore.getState().undoDelete();
+  assert.equal(activeTasks(useStore.getState().tasks).length, 4);
+  assert.equal(useStore.getState().lastDeleted, null);
+});
+
+test("skipTaskDay deletes one day and materialize never respawns it", () => {
+  useStore.getState().addTask("habit", "doing", "2026-07-29", "daily");
+  useStore.getState().materializeRecurring("2026-07-31");
+  const instance = useStore.getState().tasks.find((t) => t.scheduledDate === "2026-07-30");
+  assert.ok(instance);
+
+  useStore.getState().skipTaskDay(instance.id);
+  const remaining = activeTasks(useStore.getState().tasks).map((t) => t.scheduledDate).sort();
+  assert.deepEqual(remaining, ["2026-07-29", "2026-07-31"]);
+
+  // The skipped date stays reserved: reconciling a wider window must not respawn it.
+  useStore.getState().materializeRecurring("2026-08-02");
+  const dates = activeTasks(useStore.getState().tasks).map((t) => t.scheduledDate).sort();
+  assert.ok(!dates.includes("2026-07-30"));
+  assert.ok(dates.includes("2026-08-01") && dates.includes("2026-08-02"));
+
+  useStore.getState().undoDelete();
+  const restored = useStore.getState().tasks.find((t) => t.id === instance.id);
+  assert.ok(restored);
+  assert.equal(restored.deleted, false);
+  assert.equal(restored.skipped, false);
+});
+
+test("missTask logs a reason into the day journal and clears the task", () => {
+  useStore.getState().upsertJournal(DAY, { content: "daylog" });
+  useStore.getState().addTask("run", "doing", DAY);
+  const id = useStore.getState().tasks[0].id;
+  useStore.getState().missTask(id, "未完成 run — 太累了");
+  assert.equal(useStore.getState().tasks[0].deleted, true);
+  assert.equal(activeTasks(useStore.getState().tasks).length, 0);
+  const entry = useStore.getState().journals.find((j) => j.date === DAY);
+  assert.ok(entry);
+  assert.equal(entry.content, "daylog\n未完成 run — 太累了");
+  // Undo restores the task; the journal keeps the logged reason.
+  useStore.getState().undoDelete();
+  assert.equal(useStore.getState().tasks[0].deleted, false);
+});
+
+test("missTask on a series instance reserves the day so it never respawns", () => {
+  useStore.getState().addTask("habit", "doing", "2026-07-29", "daily");
+  useStore.getState().materializeRecurring("2026-07-31");
+  const instance = useStore.getState().tasks.find((t) => t.scheduledDate === "2026-07-30");
+  assert.ok(instance);
+
+  useStore.getState().missTask(instance.id, "未完成 habit — 忘记");
+  useStore.getState().materializeRecurring("2026-08-02");
+  const dates = activeTasks(useStore.getState().tasks).map((t) => t.scheduledDate).sort();
+  assert.ok(!dates.includes("2026-07-30"));
+  assert.ok(dates.includes("2026-08-01") && dates.includes("2026-08-02"));
+  const entry = useStore.getState().journals.find((j) => j.date === "2026-07-30");
+  assert.ok(entry);
 });
 
 test("deleteGoal soft-deletes the goal and clears goalId on its tasks (cross-slice)", () => {

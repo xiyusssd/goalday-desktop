@@ -40,6 +40,8 @@ export interface Task {
   completedAt: number | null;
   /** Soft-delete marker so deletions can sync across devices. */
   deleted: boolean;
+  /** True when only this occurrence of a recurring series was deleted; keeps the date reserved so it never respawns. */
+  skipped?: boolean;
 }
 
 /** A daily journal / review entry, keyed by date. */

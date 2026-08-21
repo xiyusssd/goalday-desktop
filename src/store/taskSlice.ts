@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
-import type { Task, TaskStatus } from "../types.ts";
-import { addDays } from "../lib/date.ts";
+import type { JournalEntry, Task, TaskStatus } from "../types.ts";
+import { addDays, today } from "../lib/date.ts";
 import { reconcileSeries } from "../lib/recurrence.ts";
 import { initialData } from "./initial.ts";
 import { persist } from "./persist.ts";
@@ -9,6 +9,7 @@ import { EMPTY_FILTER, type Slice, type TaskSlice } from "./types.ts";
 export const createTaskSlice: Slice<TaskSlice> = (set, get) => ({
   tasks: initialData.tasks,
   selectedTaskId: null,
+  pendingDeleteId: null,
   filter: { ...EMPTY_FILTER },
   lastDeleted: null,
 
@@ -126,7 +127,110 @@ export const createTaskSlice: Slice<TaskSlice> = (set, get) => ({
       tasks: s.tasks.map((x) =>
         x.id === id ? { ...x, deleted: true, updatedAt: Date.now() } : x,
       ),
-      lastDeleted: { id, at: Date.now() },
+      lastDeleted: { ids: [id], at: Date.now() },
+    }));
+    persist(get());
+  },
+
+  deleteTaskSeries: (id) => {
+    const now = Date.now();
+    const target = get().tasks.find((x) => x.id === id && !x.deleted);
+    if (!target) return;
+    // Heads carry their own id as the series key once materialized; instances
+    // carry the head's id. (seriesId ?? id) matches both uniformly.
+    const seriesKey = target.seriesId ?? (target.recurrence ? target.id : null);
+    const ids = seriesKey
+      ? get()
+          .tasks.filter((x) => !x.deleted && (x.seriesId ?? x.id) === seriesKey)
+          .map((x) => x.id)
+      : [id];
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    set((s) => ({
+      tasks: s.tasks.map((x) =>
+        idSet.has(x.id) ? { ...x, deleted: true, updatedAt: now } : x,
+      ),
+      lastDeleted: { ids, at: now },
+    }));
+    persist(get());
+  },
+
+  skipTaskDay: (id) => {
+    const now = Date.now();
+    const target = get().tasks.find((x) => x.id === id && !x.deleted);
+    if (!target) return;
+    // Deleting the head day would orphan the whole series; treat it as a series
+    // deletion instead of leaving headless instances behind.
+    if (target.recurrence) {
+      get().deleteTaskSeries(id);
+      return;
+    }
+    if (!target.seriesId) {
+      get().deleteTask(id);
+      return;
+    }
+    // Keep the occurrence with a skip marker so reconcileSeries still reserves
+    // this grid date and never respawns a replacement.
+    set((s) => ({
+      tasks: s.tasks.map((x) =>
+        x.id === id ? { ...x, deleted: true, skipped: true, updatedAt: now } : x,
+      ),
+      lastDeleted: { ids: [id], at: now },
+    }));
+    persist(get());
+  },
+
+  missTask: (id, journalLine) => {
+    const now = Date.now();
+    const target = get().tasks.find((x) => x.id === id && !x.deleted);
+    const reason = journalLine.trim();
+    if (!target || !reason) return;
+    // A missed series head clears the whole series (deleting just the head
+    // would orphan its instances).
+    const ids = target.recurrence
+      ? get()
+          .tasks.filter((x) => !x.deleted && (x.seriesId ?? x.id) === (target.seriesId ?? target.id))
+          .map((x) => x.id)
+      : [id];
+
+    // Log the reason into the day's journal entry so the review can recall
+    // what was missed and why.
+    const day = target.scheduledDate ?? today();
+    const entry = get().journals.find((j) => j.date === day && !j.deleted);
+
+    const idSet = new Set(ids);
+    set((s) => ({
+      journals: entry
+        ? s.journals.map((j) =>
+            j.id === entry.id
+              ? { ...j, content: j.content ? `${j.content}\n${reason}` : reason, updatedAt: now }
+              : j,
+          )
+        : [
+            ...s.journals,
+            {
+              id: nanoid(),
+              date: day,
+              content: reason,
+              mood: null,
+              createdAt: now,
+              updatedAt: now,
+              deleted: false,
+            } satisfies JournalEntry,
+          ],
+      tasks: s.tasks.map((x) =>
+        idSet.has(x.id)
+          ? {
+              ...x,
+              deleted: true,
+              // Series instances keep their date reserved so the reconciler
+              // never respawns them; the head and plain tasks need no marker.
+              ...(x.id === id && x.seriesId !== null && x.recurrence === null ? { skipped: true } : {}),
+              updatedAt: now,
+            }
+          : x,
+      ),
+      lastDeleted: { ids, at: now },
     }));
     persist(get());
   },
@@ -134,14 +238,18 @@ export const createTaskSlice: Slice<TaskSlice> = (set, get) => ({
   undoDelete: () => {
     const pending = get().lastDeleted;
     if (!pending) return;
+    const idSet = new Set(pending.ids);
     set((s) => ({
       tasks: s.tasks.map((x) =>
-        x.id === pending.id ? { ...x, deleted: false, updatedAt: Date.now() } : x,
+        idSet.has(x.id) ? { ...x, deleted: false, skipped: false, updatedAt: Date.now() } : x,
       ),
       lastDeleted: null,
     }));
     persist(get());
   },
+
+  openDeleteDialog: (id) => set({ pendingDeleteId: id }),
+  closeDeleteDialog: () => set({ pendingDeleteId: null }),
 
   materializeRecurring: (upto) => {
     const now = Date.now();
@@ -161,8 +269,14 @@ export const createTaskSlice: Slice<TaskSlice> = (set, get) => ({
         patched.set(head.id, { ...head, seriesId, updatedAt: now });
       }
       const members = current
-        .filter((x) => (x.seriesId ?? x.id) === seriesId && !x.deleted)
-        .map((x) => ({ id: x.id, scheduledDate: x.scheduledDate, status: x.status, isHead: x.id === head.id }));
+        .filter((x) => (x.seriesId ?? x.id) === seriesId && (!x.deleted || x.skipped))
+        .map((x) => ({
+          id: x.id,
+          scheduledDate: x.scheduledDate,
+          status: x.status,
+          isHead: x.id === head.id,
+          skipped: x.skipped ?? false,
+        }));
 
       // A recurring task's dueDate is the SERIES END: never generate past it.
       const effectiveUpto =

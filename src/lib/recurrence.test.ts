@@ -71,6 +71,17 @@ check("reconcile: fresh head spawns the missing grid days", () => {
   assert.deepEqual(r.deleteIds, []);
 });
 
+check("reconcile: skipped member reserves its date so nothing respawns", () => {
+  const members = [
+    head("2026-07-27"),
+    inst("a", "2026-07-28"),
+    { id: "skip", scheduledDate: "2026-07-29", status: "doing", isHead: false, skipped: true },
+  ];
+  const r = reconcileSeries("2026-07-27", "daily", members, "2026-07-30");
+  assert.deepEqual(r.spawnDates, ["2026-07-30"]);
+  assert.deepEqual(r.deleteIds, []);
+});
+
 check("reconcile: idempotent when grid already filled", () => {
   const members = [head("2026-07-27"), inst("a", "2026-07-28"), inst("b", "2026-07-29"), inst("c", "2026-07-30")];
   const r = reconcileSeries("2026-07-27", "daily", members, "2026-07-30");

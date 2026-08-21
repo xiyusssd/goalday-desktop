@@ -33,6 +33,8 @@ export interface SeriesMember {
   scheduledDate: string | null;
   status: "todo" | "doing" | "done";
   isHead: boolean;
+  /** Deleted single occurrence that still reserves its grid date. */
+  skipped?: boolean;
 }
 
 export interface ReconcileResult {
@@ -61,10 +63,19 @@ export function reconcileSeries(
   const filled = new Set<string>();
   const deleteIds: string[] = [];
 
+  // A skipped (single-day-deleted) occurrence keeps reserving its grid date,
+  // so the reconciler never respawns a replacement for it.
+  for (const m of members) {
+    if (m.skipped && m.scheduledDate) filled.add(m.scheduledDate);
+  }
+
   // Done instances and the head claim their dates first (never deleted here).
-  const ordered = [...members].sort(
-    (a, b) => Number(b.isHead) - Number(a.isHead) || Number(b.status === "done") - Number(a.status === "done"),
-  );
+  const ordered = [...members]
+    .filter((m) => !m.skipped)
+    .sort(
+      (a, b) =>
+        Number(b.isHead) - Number(a.isHead) || Number(b.status === "done") - Number(a.status === "done"),
+    );
   for (const m of ordered) {
     if (!m.scheduledDate) continue;
     const keep = m.isHead || m.status === "done";

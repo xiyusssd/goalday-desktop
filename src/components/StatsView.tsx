@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useStore, activeTasks } from "../store";
+import { useStore } from "../store";
 import { weekDays, today } from "../lib/date";
 import { completionCountByDate, completionStreak } from "../lib/stats";
 import { useT } from "../i18n";
@@ -23,7 +23,9 @@ export function StatsView() {
   const labels = tArr("weekdayShort");
 
   const { rate, totalDone, streak, perDay, maxDay, byGoal } = useMemo(() => {
-    const all = activeTasks(tasks);
+    // Completion stats include soft-deleted tasks: a cleared unfinished task
+    // is unfinished content, so it still counts into the rate denominator.
+    const all = tasks;
     const done = all.filter((x) => x.status === "done");
     const totalDone = done.length;
     const byDate = completionCountByDate(done);

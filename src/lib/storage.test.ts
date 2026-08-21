@@ -58,6 +58,7 @@ function task(over: Partial<Task> = {}): Task {
     order: 0,
     goalId: null,
     recurrence: null,
+    skipped: false,
     seriesId: null,
     createdAt: 1,
     updatedAt: 1,

@@ -28,7 +28,7 @@ const periodLabel: Record<NonNullable<Task["scheduledPeriod"]>, { zh: string; en
 
 export function TaskCard({ task, compact, showPeriod }: Props) {
   const toggleDone = useStore((s) => s.toggleDone);
-  const deleteTask = useStore((s) => s.deleteTask);
+  const openDeleteDialog = useStore((s) => s.openDeleteDialog);
   const scheduleTask = useStore((s) => s.scheduleTask);
   const openTask = useStore((s) => s.openTask);
   const goal = useStore((s) => s.goals.find((g) => g.id === task.goalId && !g.deleted));
@@ -146,7 +146,7 @@ export function TaskCard({ task, compact, showPeriod }: Props) {
         </div>
 
         <button
-          onClick={() => deleteTask(task.id)}
+          onClick={() => openDeleteDialog(task.id)}
           className={clsx(
             "text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-rose-500",
             compact ? "absolute right-1 top-1" : "shrink-0",

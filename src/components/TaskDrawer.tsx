@@ -41,7 +41,7 @@ export function TaskDrawer() {
   const goals = useStore((s) => s.goals);
   const updateTask = useStore((s) => s.updateTask);
   const scheduleTask = useStore((s) => s.scheduleTask);
-  const deleteTask = useStore((s) => s.deleteTask);
+  const openDeleteDialog = useStore((s) => s.openDeleteDialog);
   const closeTask = useStore((s) => s.closeTask);
   const { t } = useT();
 
@@ -280,8 +280,8 @@ export function TaskDrawer() {
           </button>
           <button
             onClick={() => {
-              deleteTask(task.id);
               closeTask();
+              openDeleteDialog(task.id);
             }}
             className="rounded-lg border border-rose-200 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 dark:border-rose-500/40 dark:hover:bg-rose-500/10"
           >

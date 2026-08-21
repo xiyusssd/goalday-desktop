@@ -7,6 +7,7 @@ import { HomeView } from "./components/HomeView";
 import { DailyPlanView } from "./components/DailyPlanView";
 import { WeekBoard } from "./components/WeekBoard";
 import { TaskDrawer } from "./components/TaskDrawer";
+import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
 
 // Less-frequently opened views are code-split so they stay out of the entry chunk.
 const JournalView = lazy(() => import("./components/JournalView").then((m) => ({ default: m.JournalView })));
@@ -109,6 +110,7 @@ export function App() {
         </main>
       </div>
       <TaskDrawer />
+      <DeleteTaskDialog />
       <UndoToast />
       {helpOpen && <ShortcutsHelp onClose={closeHelp} />}
     </SyncProvider>

@@ -29,10 +29,12 @@ export interface TaskSlice {
   tasks: Task[];
   /** Task currently open in the detail drawer, or null. UI only. */
   selectedTaskId: string | null;
+  /** Task awaiting a delete-scope choice (delete dialog). UI only. */
+  pendingDeleteId: string | null;
   /** Global search/filter applied to the planning views. UI only. */
   filter: TaskFilter;
-  /** Most recent task deletion, for the undo toast. UI only. */
-  lastDeleted: { id: string; at: number } | null;
+  /** Most recent task deletion batch, for the undo toast. UI only. */
+  lastDeleted: { ids: string[]; at: number } | null;
 
   addTask: (title: string, status?: TaskStatus, scheduledDate?: string | null, recurrence?: Recurrence) => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
@@ -41,7 +43,15 @@ export interface TaskSlice {
   scheduleTask: (id: string, scheduledDate: string | null, scheduledPeriod: DayPeriod | null) => void;
   toggleDone: (id: string) => void;
   deleteTask: (id: string) => void;
+  /** Delete a recurring series head and every generated instance; plain tasks fall back to deleteTask. */
+  deleteTaskSeries: (id: string) => void;
+  /** Delete a single occurrence of a recurring series, keeping other days (never respawns). */
+  skipTaskDay: (id: string) => void;
+  /** Append a pre-composed reason line to the task's day journal and clear the task. */
+  missTask: (id: string, journalLine: string) => void;
   undoDelete: () => void;
+  openDeleteDialog: (id: string) => void;
+  closeDeleteDialog: () => void;
   /** Pre-generate recurring-series instances through `upto` (inclusive). */
   materializeRecurring: (upto: string) => void;
   openTask: (id: string) => void;

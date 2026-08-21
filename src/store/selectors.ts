@@ -74,9 +74,13 @@ export function attentionCount(tasks: Task[], todayIso: string): number {
   ).length;
 }
 
-/** Completion rate (0..1) among tasks scheduled on `date`; 0 when none. */
+/**
+ * Completion rate (0..1) among tasks scheduled on `date`; 0 when none.
+ * Soft-deleted tasks still count: clearing an unfinished task must not make
+ * the day look more complete than it was.
+ */
 export function dayCompletion(tasks: Task[], date: string): { done: number; total: number; rate: number } {
-  const scheduled = activeTasks(tasks).filter((task) => task.scheduledDate === date);
+  const scheduled = tasks.filter((task) => task.scheduledDate === date);
   const done = scheduled.filter((task) => task.status === "done").length;
   const total = scheduled.length;
   return { done, total, rate: total ? done / total : 0 };

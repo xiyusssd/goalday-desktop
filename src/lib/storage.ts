@@ -21,6 +21,7 @@ export function loadData(): AppData {
         recurrence: t.recurrence ?? null,
         dueDate: t.dueDate ?? null,
         seriesId: t.seriesId ?? null,
+        skipped: t.skipped ?? false,
       })),
       journals: parsed.journals ?? [],
       goals: parsed.goals ?? [],

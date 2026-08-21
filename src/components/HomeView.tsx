@@ -96,9 +96,11 @@ export function HomeView() {
   const todayIso = today();
 
   // Derived task stats: recompute only when tasks/goals/day change, not on
-  // every language/theme re-render.
+  // every language/theme re-render. Completion stats include soft-deleted
+  // tasks so clearing an unfinished task still counts it as unfinished;
+  // the task lists below stay active-only.
   const { progress, todays, overdue, totalDone, rate, streak, byGoal } = useMemo(() => {
-    const all = tasks.filter((x) => !x.deleted);
+    const all = tasks;
     const totalDone = all.filter((x) => x.status === "done").length;
     const byGoal = goals
       .filter((g) => !g.deleted)
